@@ -1,0 +1,289 @@
+---
+title: "COVID-19 Exploratory Data Analysis"
+author: "Hossameldin Mohammed"
+output: 
+  html_document:
+    toc: true
+    code_folding: hide
+---
+
+# Introduction
+
+This is a personal Rmarkdown document I have created to visualize the COVID-19 updates and some preliminary exploratory data analysis (EDA). The source of this data is the [github repository](https://github.com/CSSEGISandData/COVID-19) created and maintained by the Coronavirus COVID-19 Global Cases by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University (JHU).
+
+```{r warning=FALSE}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(forecast))
+suppressPackageStartupMessages(library(zoo))
+suppressPackageStartupMessages(library(xts))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(gghighlight))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(directlabels))
+suppressPackageStartupMessages(library(scales))
+suppressPackageStartupMessages(library(plotly))
+#suppressPackageStartupMessages(library(rjson))
+
+
+```
+
+# Reading the data
+
+```{r message = FALSE,  warning=FALSE}
+
+COVID_confirmed_global_raw <- read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv") 
+COVID_deaths_global_raw <-  read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv") 
+COVID_recovered_global_raw <-  read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv") 
+```
+
+# Reshaping and formatting data 
+
+```{r  warning=FALSE}
+# Reshape to longer format
+COVID_confirmed_global_longer <- COVID_confirmed_global_raw %>% 
+  pivot_longer(cols      = c('1/22/20':names(COVID_confirmed_global_raw)[ncol(COVID_confirmed_global_raw)]),
+               names_to  = "date",
+               values_to = "n_cases")
+  
+
+COVID_deaths_global_longer <- COVID_deaths_global_raw %>% 
+  pivot_longer(cols      = c('1/22/20':names(COVID_deaths_global_raw)[ncol(COVID_deaths_global_raw)]),
+               names_to  = "date",
+               values_to = "n_cases")
+
+COVID_recovered_global_longer <- COVID_recovered_global_raw %>% 
+  pivot_longer(cols      = c('1/22/20':names(COVID_recovered_global_raw)[ncol(COVID_recovered_global_raw)]),
+               names_to  = "date",
+               values_to = "n_cases")
+
+
+# change column names
+colnames(COVID_confirmed_global_longer) <-  c('state', 'country', 'lat', 'long','date', 'n_cases')
+colnames(COVID_deaths_global_longer) <-  c('state', 'country', 'lat', 'long','date', 'n_cases')
+colnames(COVID_recovered_global_longer) <-  c('state', 'country', 'lat', 'long','date', 'n_cases')
+
+# drop `state` column and create a `new_cases` column
+COVID_confirmed_global_longer <- COVID_confirmed_global_longer %>% 
+               select(-state)%>% 
+               group_by(country, date) %>% 
+               summarize(n_cases = sum(n_cases))  
+COVID_deaths_global_longer <- COVID_deaths_global_longer %>% 
+               select(-state)%>% 
+               group_by(country, date) %>% 
+               summarize(n_cases = sum(n_cases)) 
+COVID_recovered_global_longer <- COVID_recovered_global_longer %>% 
+               select(-state) %>% 
+               group_by(country, date) %>% 
+               summarize(n_cases = sum(n_cases)) 
+
+# convert date columns from character to date format
+COVID_confirmed_global_longer$date <- as.Date(COVID_confirmed_global_longer$date, format = '%m/%d/%Y')
+COVID_deaths_global_longer$date <- as.Date(COVID_deaths_global_longer$date, format = '%m/%d/%Y')
+COVID_recovered_global_longer$date <- as.Date(COVID_recovered_global_longer$date, format = '%m/%d/%Y')
+
+COVID_confirmed_global_longer <- COVID_confirmed_global_longer %>% 
+  arrange(country, date) %>% 
+  mutate(new_cases = n_cases-lag(n_cases, default = 0))
+
+COVID_deaths_global_longer <- COVID_deaths_global_longer %>% 
+  arrange(country, date) %>% 
+  mutate(new_cases = n_cases-lag(n_cases, default = 0))
+
+COVID_recovered_global_longer <- COVID_recovered_global_longer %>% 
+  arrange(country, date) %>% 
+  mutate(new_cases = n_cases-lag(n_cases, default = 0))
+
+```
+
+Let's look at the current data format
+
+```{r warning=FALSE}
+knitr::kable(head(COVID_confirmed_global_longer),format = 'markdown')
+```
+
+# creating some functions for quick stats
+
+```{r warning=FALSE}
+
+world_summary <- function() {
+   
+  df1 <- COVID_confirmed_global_longer %>% 
+    group_by(country) %>% 
+    summarize(n_cases_today = max(n_cases),
+              new_cases_today = dplyr::last(new_cases)) %>%
+    ungroup() %>% 
+    summarize(n_cases_total = sum(n_cases_today),
+              new_cases_total = sum(new_cases_today))
+  
+  df2 <- COVID_deaths_global_longer %>% 
+    group_by(country) %>% 
+    summarize(n_cases_today = max(n_cases),
+              new_cases_today = dplyr::last(new_cases)) %>% 
+    ungroup() %>% 
+    summarize(n_cases_total = sum(n_cases_today),
+              new_cases_total = sum(new_cases_today))
+  
+  df3 <- COVID_recovered_global_longer %>%
+    group_by(country) %>% 
+    summarize(n_cases_today = max(n_cases),
+              new_cases_today = dplyr::last(new_cases)) %>% 
+    ungroup() %>% 
+    summarize(n_cases_total = sum(n_cases_today),
+              new_cases_total = sum(new_cases_today))
+  
+  print(paste0("number of total confirmed cases in the world as of today:  ", df1$n_cases_total, " with ", df1$new_cases_total, " new cases"))
+  print(paste0("number of total deaths in the world  as of today:  ", df2$n_cases_total, " with ", df2$new_cases_total, " new deaths"))
+  print(paste0("number of total recovered cases in the world  as of today:  ", df3$n_cases_total, " with ", df3$new_cases_total, " new cases"))
+  
+}
+
+
+country_summary <- function(country1) {
+  
+  df1 <- COVID_confirmed_global_longer %>% group_by(country) %>% dplyr::filter(country==country1) %>%  summarize(n_cases_today = max(n_cases),
+              new_cases_today = dplyr::last(new_cases))
+  df2 <- COVID_deaths_global_longer %>% group_by(country)%>% dplyr::filter(country==country1) %>% summarize(n_cases_today = max(n_cases),
+              new_cases_today = dplyr::last(new_cases))
+  df3 <- COVID_recovered_global_longer %>% group_by(country)%>% dplyr::filter(country==country1) %>% summarize(n_cases_today = max(n_cases),
+              new_cases_today = dplyr::last(new_cases))
+  #                                                            
+  print(paste0("number of confirmed cases in ", country1, " as of today:  ", df1$n_cases_today, " with ", df1$new_cases_today, " new cases"))
+  # df1$n_cases_today
+
+  print(paste0("number of deaths in ", country1, " as of today:  ", df2$n_cases_today, " with ", df2$new_cases_today, " new deaths"))
+  # df2$n_cases_today
+
+  print(paste0("number of recovered cases in ", country1, " as of today:  ", df3$n_cases_today, " with ", df3$new_cases_today, " new cases"))
+  # df3$n_cases_today
+  
+}
+
+
+world_summary()
+country_summary("US")
+country_summary("Italy")
+country_summary("Spain")
+country_summary("China")
+country_summary("Egypt")
+
+
+```
+
+# Donut plot
+
+```{r warning=FALSE}
+
+# Get Manufacturer
+
+df <- COVID_confirmed_global_longer %>% mutate(country_sum = ifelse(n_cases > 5000, country,"other"))
+df <- df %>% group_by(country_sum)
+df <- df %>% summarize(count = max(n_cases))
+fig <- df %>% plot_ly(labels = ~country_sum, values = ~count, text = ~country_sum)
+fig <- fig %>% add_pie(hole = 0.4)
+fig <- fig %>% layout(title = "Confirmed cases worldwide",  showlegend = F,
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig
+```
+
+# Multi-dimensional bar-chart
+
+```{r}
+
+# One trace (more performant, but less interactive)
+COVID_confirmed_global_longer %>%
+  group_by(country) %>%
+  plot_ly(x = ~date, y = ~n_cases, color = ~country) %>%
+  add_bars(text = ~country)%>%
+  layout(barmode = "stack",
+         showlegend = FALSE) 
+
+  
+```
+
+
+# A function for plotting COVID-19 cases for different countries
+
+```{r warning=FALSE}
+plot_countries <- function(df, curve_title, cumulative, ...) {
+  df1 <- df %>% 
+    dplyr::filter(country %in% list(...))
+  
+  if (cumulative) {
+  p1 = ggplot(df1, aes(date, n_cases, group=country, color=country))+
+    geom_line()+
+    scale_x_date(date_breaks = "3 days")+
+    scale_y_log10(labels = function(x) format(x, scientific = FALSE),
+                  name = "number of cases",
+                  breaks = scales::breaks_log(n = 10))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90), legend.position = "none")+
+    ggtitle(curve_title)+
+      geom_dl(data = df1, aes(label = country), method = list(dl.combine("first.points", "last.points"), cex = 0.8))
+  } else{
+  p1 = ggplot(df1, aes(date, new_cases, group=country, color=country))+
+    geom_line()+
+    scale_x_date(date_breaks = "3 days")+
+    scale_y_log10(labels = function(x) format(x, scientific = FALSE),
+                  name = "number of cases",
+                  breaks = scales::breaks_log(n = 10))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90), legend.position = "none")+
+    ggtitle(curve_title)+
+      geom_dl(data = df1, aes(label = country), method = list(dl.combine("first.points", "last.points"), cex = 0.8))
+  }
+  
+
+    
+  return(p1)
+}
+
+plot_countries(COVID_confirmed_global_longer, curve_title = "Confirmed cases (cummulative)", cumulative = TRUE,"china", "US", "Italy", "Canada", "Egypt")
+plot_countries(COVID_deaths_global_longer, curve_title = "Death cases (cummulative)", cumulative = TRUE, "china","US", "Italy", "Canada", "Egypt")
+plot_countries(COVID_recovered_global_longer, curve_title = "Recovered cases (cummulative)",cumulative = TRUE, "china","US", "Italy", "Canada", "Egypt")
+
+plot_countries(COVID_confirmed_global_longer, curve_title = "New confirmed cases", cumulative = FALSE,  "china","US", "Italy", "Canada", "Egypt")
+plot_countries(COVID_deaths_global_longer, curve_title = "New death cases", cumulative = FALSE,  "china","US", "Italy", "Canada", "Egypt")
+plot_countries(COVID_recovered_global_longer, curve_title = "New recovered cases", cumulative = FALSE,  "china","US", "Italy", "Canada", "Egypt")
+
+
+```
+
+# Visualizing confirmed cases with new cases
+Inspired by [this minuteearth video](https://www.youtube.com/watch?v=54XLXg4fYsc&feature=youtu.be&fbclid=IwAR2WColkqpGMjnFwuKsTc2oEaYg9yfc2hZomaW89Q5sv46l-cv9u5tmKhmw). The thing about this visualization is that it doesn't plot the Cumulative number of confirmed cases with time, instead with the number of new cases on a log-scale, which is more intuitive. Multiple comparisons between countries with very different number of cases could be very made very clear, and it is very easy to detect whether things are getting better.
+
+```{r warning=FALSE}
+COVID_confirmed_smoothed <- COVID_confirmed_global_longer %>% 
+  tidyr::nest(-country) %>% 
+  dplyr::mutate(m = purrr::map(data, loess,
+                                               formula = new_cases ~ n_cases, span = 0.6),
+                fitted = purrr::map(m, `[[`, "fitted"))
+
+COVID_confirmed_smoothed <- COVID_confirmed_smoothed %>%
+  dplyr::select(-m) %>%
+  tidyr::unnest()
+
+COVID_confirmed_smoothed2 <- COVID_confirmed_smoothed %>% 
+  dplyr::filter(country %in% c("US", "China", "Italy", "Korea, South", "Iran", "Egypt"))
+
+ggplot(data = COVID_confirmed_smoothed2, aes(n_cases, fitted))+
+  geom_path(data = COVID_confirmed_smoothed2,aes(n_cases,fitted,color = country, group = country))+
+  theme_bw()+
+  ylab("number of cases")+
+  scale_y_log10(labels = function(x) format(x, scientific = FALSE))+
+  scale_x_log10(labels = function(x) format(x, scientific = FALSE))+
+  geom_dl(data = COVID_confirmed_smoothed2, aes(label = country), method = list(dl.combine("first.points", "last.points"), cex = 0.8))+
+  xlab(label = "Total confirmed cases")+
+  ylab(label = "number of new cases")+
+  theme(legend.position="none")
+
+```
+
+
+
+
+
+
+
+

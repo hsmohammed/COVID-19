@@ -8,8 +8,8 @@ library(gghighlight)
 # read data
 
 COVID_confirmed_raw <- read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv") 
-COVID_deaths_raw <-  read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv") 
-COVID_recovered_raw <-  read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv") 
+COVID_deaths_raw <-  read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv") 
+COVID_recovered_raw <-  read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv") 
 
 
 # reshape data
@@ -55,13 +55,13 @@ country_case <- function(country1) {
   df2 <- COVID_deaths %>% group_by(country)%>% dplyr::filter(country==country1) %>% summarize(n_cases_today = max(n_cases))
   df3 <- COVID_recovered %>% group_by(country)%>% dplyr::filter(country==country1) %>% summarize(n_cases_today = max(n_cases))
   #                                                            
-  print(paste0("number of confirmed cases today:  ", df1$n_cases_today))
+  print(paste0("number of confirmed cases in ", country1, " today:  ", df1$n_cases_today))
   # df1$n_cases_today
 
-  print(paste0("number of Deaths today:  ",df2$n_cases_today))
+  print(paste0("number of confirmed cases in ", country1, " today:  ", df2$n_cases_today))
   # df2$n_cases_today
 
-  print(paste0("number of Recovered cases today:  ", df3$n_cases_today))
+  print(paste0("number of confirmed cases in ", country1, " today:  ", df3$n_cases_today))
   # df3$n_cases_today
   
 }
@@ -74,9 +74,9 @@ world_case <- function() {
   df2 <- COVID_deaths %>% group_by(country) %>% summarize(n_cases_today = max(n_cases)) %>% summarize(n_cases_total = sum(n_cases_today))
   df3 <- COVID_recovered %>% group_by(country) %>% summarize(n_cases_today = max(n_cases)) %>% summarize(n_cases_total = sum(n_cases_today))
   
-  print(paste0("number of total confirmed cases in the world:  ", df1$n_cases_total))
-  print(paste0("number of total deaths in the world:  ", df2$n_cases_total))
-  print(paste0("number of total recovered cases in the world:  ", df3$n_cases_total))
+  print(paste0("number of total confirmed cases in the world as of today:  ", df1$n_cases_total))
+  print(paste0("number of total deaths in the world  as of today:  ", df2$n_cases_total))
+  print(paste0("number of total recovered cases in the world  as of today:  ", df3$n_cases_total))
   
 }
 
@@ -183,12 +183,39 @@ plot_new_cases <- function(df, country1, type){
 world_case()
 country_case("Canada")
 
-plot_country(COVID_confirmed_wider, "Canada", "Confirmed")
-plot_new_cases(COVID_confirmed_BC, "Canada", "Confirmed")
+  ggplot()+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["US"]], color = "US"),size = 1)+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["China"]], color = "China"),size = 1)+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["Italy"]], color = "Italy"),size = 1)+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["Iran"]], color = "Iran"),size = 1)+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["Spain"]], color = "Spain"),size = 1)+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["Germany"]], color = "Germany"),size = 1)+
+    geom_line(data = COVID_confirmed_wider,aes(date,COVID_confirmed_wider[["France"]], color = "France"),size = 1)+
+    
+    
+    theme_bw()+
+    ylab("number of cases")+
+    scale_x_date(date_breaks = "3 days")+
+    theme(axis.text.x = element_text(angle = 90))+
+    ggtitle("Confirmed (cummulative)")
+  
+  COVID_confirmed1 <- COVID_confirmed %>% filter(country %in% c("China", "Iran","US","Italy", "Spain", "Germany", "France"))
+  ggplot()+
+    geom_line(data = COVID_confirmed1,aes(date,new_cases, group = country, color = country),size = 1)+
+    
+    theme_bw()+
+    ylab("number of cases")+
+    scale_x_date(date_breaks = "3 days")+
+    theme(axis.text.x = element_text(angle = 90))+
+    ggtitle("Confirmed (cummulative)")
+  
 
 
-tail(table_country(COVID_confirmed, "Canada"))
+plot_new_cases(COVID_confirmed, "US", "Confirmed")
 
+
+tail(table_country(COVID_confirmed, "Iran"))
+plot_country(COVID_confirmed_wider, "Egypt", "confirmed")
 
 
 COVID_confirmed_tot <- COVID_confirmed %>%
@@ -218,11 +245,13 @@ COVID_recovered_tot <- COVID_recovered %>%
 
 COVID_confirmed_tot %>% ggplot()+geom_line(aes(date, n_cases_cum))
 COVID_confirmed_tot %>% ggplot()+geom_line(aes(date, n_cases_new))
+tail(COVID_confirmed_tot)
 
 COVID_confirmed_tot_zoo <- zoo(COVID_confirmed_tot$n_cases_new, order.by = COVID_confirmed_tot$date)
 Acf(COVID_confirmed_tot_zoo)
 pacf(COVID_confirmed_tot_zoo)
 
+autoplot(COVID_confirmed_tot_zoo)
 
 COVID_confirmed_US_Canada <- COVID_confirmed_states %>% dplyr::filter(country %in% c("US", "Canada"))
 COVID_confirmed_US_Canada$date <- as.Date(COVID_confirmed_US_Canada$date, format = '%m/%d/%Y')
@@ -241,3 +270,31 @@ COVID_confirmed_state <- function(state1) {
 }
 
 tail(COVID_confirmed_state("British Columbia"))
+plot_new_cases(COVID_confirmed_state("British Columbia"), "Canada", "Confirmed")
+plot_country(COVID_confirmed_wider, "US", "Confirmed")
+plot_new_cases(COVID_confirmed, "US", "Confirmed")
+
+COVID_confirmed_smoothed <- COVID_confirmed %>% 
+  tidyr::nest(-country) %>% 
+  dplyr::mutate(m = purrr::map(data, loess,
+                                               formula = new_cases ~ n_cases, span = 0.6),
+                fitted = purrr::map(m, `[[`, "fitted"))
+
+COVID_confirmed_smoothed <- COVID_confirmed_smoothed %>%
+  dplyr::select(-m) %>%
+  tidyr::unnest()
+
+library(directlabels)
+COVID_confirmed_smoothed2 <- COVID_confirmed_smoothed %>% 
+  dplyr::filter(country %in% c("US", "China", "Italy", "Korea, South", "Iran", "Egypt"))
+
+ggplot(data = COVID_confirmed_smoothed2, aes(n_cases, fitted))+
+  geom_path(data = COVID_confirmed_smoothed2,aes(n_cases,fitted,color = country, group = country))+
+  theme_bw()+
+  ylab("number of cases")+
+  scale_y_log10(labels = function(x) format(x, scientific = FALSE))+
+  scale_x_log10(labels = function(x) format(x, scientific = FALSE))+
+  geom_dl(data = COVID_confirmed_smoothed2, aes(label = country), method = list(dl.combine("first.points", "last.points"), cex = 0.8))+
+  xlab(label = "Total confirmed cases")+
+  ylab(label = "number of new cases")+
+  theme(legend.position="none")
