@@ -206,7 +206,7 @@ COVID_confirmed_global_longer %>%
 # A function for plotting COVID-19 cases for different countries
 
 ```{r warning=FALSE}
-plot_countries <- function(df, curve_title, cumulative, ...) {
+plot_countries <- function(df, curve_title, cumulative=TRUE, ...) {
   df1 <- df %>% 
     dplyr::filter(country %in% list(...))
   
@@ -239,13 +239,13 @@ plot_countries <- function(df, curve_title, cumulative, ...) {
   return(p1)
 }
 
-plot_countries(COVID_confirmed_global_longer, curve_title = "Confirmed cases (cummulative)", cumulative = TRUE,"china", "US", "Italy", "Canada", "Egypt")
-plot_countries(COVID_deaths_global_longer, curve_title = "Death cases (cummulative)", cumulative = TRUE, "china","US", "Italy", "Canada", "Egypt")
-plot_countries(COVID_recovered_global_longer, curve_title = "Recovered cases (cummulative)",cumulative = TRUE, "china","US", "Italy", "Canada", "Egypt")
+plot_countries(COVID_confirmed_global_longer, curve_title = "Confirmed cases (cumulative)", cumulative = TRUE, "US", "Italy", "Canada", "Egypt",  "china")
+plot_countries(COVID_deaths_global_longer, curve_title = "Death cases (cumulative)", cumulative = TRUE,"US", "Italy", "Canada", "Egypt",  "china")
+plot_countries(COVID_recovered_global_longer, curve_title = "Recovered cases (cumulative)",cumulative = TRUE, "china","US", "Italy", "Canada", "Egypt",  "china")
 
-plot_countries(COVID_confirmed_global_longer, curve_title = "New confirmed cases", cumulative = FALSE,  "china","US", "Italy", "Canada", "Egypt")
-plot_countries(COVID_deaths_global_longer, curve_title = "New death cases", cumulative = FALSE,  "china","US", "Italy", "Canada", "Egypt")
-plot_countries(COVID_recovered_global_longer, curve_title = "New recovered cases", cumulative = FALSE,  "china","US", "Italy", "Canada", "Egypt")
+plot_countries(COVID_confirmed_global_longer, curve_title = "New confirmed cases", cumulative = FALSE,"US", "Italy", "Canada", "Egypt",  "china")
+plot_countries(COVID_deaths_global_longer, curve_title = "New death cases", cumulative = FALSE,"US", "Italy", "Canada", "Egypt",  "china")
+plot_countries(COVID_recovered_global_longer, curve_title = "New recovered cases", cumulative = FALSE,"US", "Italy", "Canada", "Egypt",  "china")
 
 
 ```
