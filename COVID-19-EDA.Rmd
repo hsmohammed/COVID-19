@@ -173,7 +173,6 @@ country_summary("Egypt")
 
 ```{r warning=FALSE}
 
-# Get Manufacturer
 
 df <- COVID_confirmed_global_longer %>% mutate(country_sum = ifelse(n_cases > 5000, country,"other"))
 df <- df %>% group_by(country_sum)
@@ -191,7 +190,6 @@ fig
 
 ```{r}
 
-# One trace (more performant, but less interactive)
 COVID_confirmed_global_longer %>%
   group_by(country) %>%
   plot_ly(x = ~date, y = ~n_cases, color = ~country) %>%
@@ -257,7 +255,7 @@ Inspired by [this minuteearth video](https://www.youtube.com/watch?v=54XLXg4fYsc
 COVID_confirmed_smoothed <- COVID_confirmed_global_longer %>% 
   tidyr::nest(-country) %>% 
   dplyr::mutate(m = purrr::map(data, loess,
-                                               formula = new_cases ~ n_cases, span = 0.6),
+                                               formula = new_cases ~ n_cases, span = 0.5),
                 fitted = purrr::map(m, `[[`, "fitted"))
 
 COVID_confirmed_smoothed <- COVID_confirmed_smoothed %>%
