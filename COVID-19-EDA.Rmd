@@ -263,7 +263,7 @@ COVID_confirmed_smoothed <- COVID_confirmed_smoothed %>%
   tidyr::unnest()
 
 COVID_confirmed_smoothed2 <- COVID_confirmed_smoothed %>% 
-  dplyr::filter(country %in% c("US", "China", "Italy", "Korea, South", "Iran", "Egypt"))
+  dplyr::filter(country %in% c("US", "China", "Italy", "Korea, South", "Iran", "Egypt", "Spain", "Germany", "France", "United Kingdom", "Canada"))
 
 ggplot(data = COVID_confirmed_smoothed2, aes(n_cases, fitted))+
   geom_path(data = COVID_confirmed_smoothed2,aes(n_cases,fitted,color = country, group = country))+
