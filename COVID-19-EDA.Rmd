@@ -165,6 +165,9 @@ country_summary("Italy")
 country_summary("Spain")
 country_summary("China")
 country_summary("Egypt")
+country_summary("Germany")
+country_summary("France")
+
 
 
 ```
@@ -255,7 +258,7 @@ Inspired by [this minuteearth video](https://www.youtube.com/watch?v=54XLXg4fYsc
 COVID_confirmed_smoothed <- COVID_confirmed_global_longer %>% 
   tidyr::nest(-country) %>% 
   dplyr::mutate(m = purrr::map(data, loess,
-                                               formula = new_cases ~ n_cases, span = 0.5),
+                                               formula = new_cases ~ n_cases, span = 0.4),
                 fitted = purrr::map(m, `[[`, "fitted"))
 
 COVID_confirmed_smoothed <- COVID_confirmed_smoothed %>%
